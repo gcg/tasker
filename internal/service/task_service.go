@@ -24,7 +24,7 @@ func findTaskRecursive(tasks []model.Task, taskID string) (targetTask *model.Tas
 			return &tasks[i], nil, tasks, true 
 		}
 		if len(task.Subtasks) > 0 {
-			if t, p, subList, f := findTaskRecursive(task.Subtasks, taskID); f {
+			if t, _, subList, f := findTaskRecursive(task.Subtasks, taskID); f {
 				// If found in subtasks, the current task is the parent
 				return t, &tasks[i], subList, true
 			}

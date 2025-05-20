@@ -8,6 +8,7 @@ import (
 
 	"todo-cli/internal/model"
 	"todo-cli/internal/service" // To call task logic
+	"todo-cli/internal/store"   // For saving tasks
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
@@ -243,7 +244,7 @@ func (m listModel) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		m.syncListItems()
-		err := service.SaveTasks(defaultTaskFile, m.tasks) // Persist changes
+		err := store.SaveTasks(defaultTaskFile, m.tasks) // Persist changes
 		if err != nil {
 			m.errorMessage = "Failed to save tasks: " + err.Error()
 		}
@@ -319,7 +320,7 @@ func (m listModel) handleNavigationMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.tasks, _ = service.ToggleTaskStatus(m.tasks, currentItem.task.ID)
 		m.syncListItems()
-		err := service.SaveTasks(defaultTaskFile, m.tasks)
+		err := store.SaveTasks(defaultTaskFile, m.tasks)
 		if err != nil {
 			m.errorMessage = "Failed to save tasks: " + err.Error()
 		}
@@ -338,14 +339,14 @@ func (m listModel) handleNavigationMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else if len(m.list.Items()) == 0 {
 			// Handle empty list, maybe move cursor or set a specific state
 		}
-		err := service.SaveTasks(defaultTaskFile, m.tasks)
+		err := store.SaveTasks(defaultTaskFile, m.tasks)
 		if err != nil {
 			m.errorMessage = "Failed to save tasks: " + err.Error()
 		}
 		return m, nil
 
 	case key.Matches(msg, defaultKeyMap.save):
-		err := service.SaveTasks(defaultTaskFile, m.tasks)
+		err := store.SaveTasks(defaultTaskFile, m.tasks)
 		if err != nil {
 			m.errorMessage = "Failed to save tasks: " + err.Error()
 		} else {
@@ -443,7 +444,7 @@ func StartTeaProgram(initialTasks []model.Task) error {
 	if fm, ok := finalModel.(listModel); ok {
 		if !fm.quitting { // Avoid saving if quit was intentional and handled
 			// This might be redundant if all actions save, but good for safety
-			if errSave := service.SaveTasks(defaultTaskFile, fm.tasks); errSave != nil {
+			if errSave := store.SaveTasks(defaultTaskFile, fm.tasks); errSave != nil {
 				// Use errSave to avoid shadowing the outer err
 				fmt.Fprintf(os.Stderr, "Error saving tasks on exit: %v\n", errSave)
 			}
