@@ -18,8 +18,9 @@ import (
 )
 
 var (
-	docStyle         = lipgloss.NewStyle().Margin(1, 2)
-	titleStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
+	// docStyle        = lipgloss.NewStyle().Margin(1, 2) // OLD STYLE
+	docStyle        = lipgloss.NewStyle().Margin(0,0).Border(lipgloss.RoundedBorder(), true).Padding(0,1) // NEW STYLE with border and adjusted margin/padding
+	titleStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true)
 	itemStyle        = lipgloss.NewStyle().PaddingLeft(2)
 	selectedStyle    = lipgloss.NewStyle().PaddingLeft(0).Foreground(lipgloss.Color("75")).Bold(true) // Cyan-ish
 	completedStyle   = lipgloss.NewStyle().Strikethrough(true).Foreground(lipgloss.Color("240"))      // Grey
@@ -138,9 +139,9 @@ var defaultKeyMap = keyMap{
 }
 
 // InitialModel creates the initial model for the Bubble Tea program.
-func InitialModel(tasks []model.Task) listModel {
+func InitialModel(tasks []model.Task, title string) listModel {
 	l := list.New(nil, list.NewDefaultDelegate(), 0, 0)
-	l.Title = "Charm Todo List"
+	l.Title = title
 	l.Styles.Title = titleStyle
 	// l.SetShowStatusBar(false) // We'll make our own help/status
 	l.SetFilteringEnabled(false) // For now
@@ -197,7 +198,67 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.list.SetSize(msg.Width-docStyle.GetHorizontalPadding(), msg.Height-docStyle.GetVerticalPadding()-lipgloss.Height(m.headerView())-lipgloss.Height(m.footerView()))
+
+		availableWidth := msg.Width - docStyle.GetHorizontalFrameSize()
+		
+		// Adjust textInput width dynamically
+		// Ensure prompt string width is accounted for if textInput has a prompt
+		promptWidth := lipgloss.Width(m.textInput.Prompt)
+		// Ensure textInput.Width is not negative if availableWidth is too small
+		if availableWidth > promptWidth + 1 {
+			m.textInput.Width = availableWidth - promptWidth - 1 // -1 for space after prompt
+		} else if availableWidth > 0 {
+			m.textInput.Width = availableWidth // Use full available width if prompt makes it too small
+		} else {
+			m.textInput.Width = 10 // A small default if terminal is tiny
+		}
+
+		// Cap width to a reasonable maximum too, e.g. 150, if availableWidth is huge
+		if m.textInput.Width > 150 { 
+			m.textInput.Width = 150
+		}
+		if m.textInput.Width < 10 && availableWidth > 10 { // Ensure a minimum usable width if possible
+			m.textInput.Width = 10
+		}
+
+
+		// Calculate the height of the header string as rendered in View():
+		// The headerView() itself + the "
+" after it.
+		actualHeaderHeight := lipgloss.Height(m.headerView()) + 1 // +1 for the "
+"
+
+		// Calculate the height of the footer string as rendered in View():
+		// The "
+" before it + the footerView() itself.
+		actualFooterHeight := lipgloss.Height(m.footerView()) + 1 // +1 for the "
+"
+		
+		// If in input mode, there's an extra "
+" after textInput.View() in the View string builder
+		inputModeExtraNewlines := 0
+		if m.mode == modeAdding || m.mode == modeEditing {
+			// textInput.View() is 1 line. "
+
+" after it is 2 lines.
+			// So, total space for input section is effectively textInputHeight + 2 newlines.
+			// The list is not shown, so this doesn't directly affect list.SetSize calculation here.
+			// What matters is the space *available for the list when it is shown*.
+		}
+
+		// Total vertical space for list is msg.Height minus:
+		// - docStyle top/bottom border+padding (docStyle.GetVerticalFrameSize())
+		// - height of the rendered header string (including its trailing newline)
+		// - height of the rendered footer string (including its preceding newline)
+		// - any extra newlines specific to a mode that aren't part of header/footer complex
+		availableHeightForList := msg.Height - docStyle.GetVerticalFrameSize() - actualHeaderHeight - actualFooterHeight - inputModeExtraNewlines
+		
+		if availableHeightForList < 0 { // Ensure non-negative height
+			availableHeightForList = 0
+		}
+
+		m.list.SetSize(availableWidth, availableHeightForList)
+		
 		return m, nil
 
 	case tea.KeyMsg:
@@ -399,27 +460,32 @@ func (m listModel) View() string {
 		return ""
 	}
 
-	var s strings.Builder
-	s.WriteString(m.headerView())
-	s.WriteString("\n") // Add a newline after the header
+	var content strings.Builder // Use a new builder for internal content
+
+	content.WriteString(m.headerView())
+	content.WriteString("\n")
 
 	if m.mode == modeAdding || m.mode == modeEditing {
-		// Only show text input when adding or editing
-		s.WriteString(m.textInput.View())
-		s.WriteString("\n\n") // Add some space after the input field
+		content.WriteString(m.textInput.View())
+		content.WriteString("\n\n") 
 	} else if m.mode == modeNavigating {
-		// Only show the list when navigating
-		s.WriteString(docStyle.Render(m.list.View()))
+		// The list view itself should not have the main docStyle, 
+		// as docStyle will now be the outer frame.
+		// If list.View() or its components use styles that add excessive margins/padding,
+		// they might need to be adjusted. For now, let's assume list.View() is self-contained.
+		content.WriteString(m.list.View()) 
 	}
-    // If there were other modes, they would need handling here or fall through if no specific view.
 
-	s.WriteString(m.footerView())
-	return s.String()
+	content.WriteString("\n") // Ensure there's a newline before the footer if list is not full height
+	content.WriteString(m.footerView())
+
+	// Render the entire collected content within the docStyle border
+	return docStyle.Render(content.String())
 }
 
 // StartTeaProgram is the main entry point for the TUI.
-func StartTeaProgram(initialTasks []model.Task) error {
-	m := InitialModel(initialTasks)
+func StartTeaProgram(initialTasks []model.Task, title string) error {
+	m := InitialModel(initialTasks, title)
 	p := tea.NewProgram(m, tea.WithAltScreen()) // Use AltScreen for cleaner exit
 
 	// It's important to propagate the final model from p.Run()

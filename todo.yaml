@@ -1,6 +1,6 @@
-- id: "test-task-1"
-  description: "Test visible input edited" # Changed
+- id: "app-task-1"
+  description: "Test task with border"
   status: "pending"
-  created_at: "2024-03-16T12:00:00Z" # Original creation time
+  created_at: "2024-03-16T14:00:00Z"
   completed_at: null
   subtasks: []
