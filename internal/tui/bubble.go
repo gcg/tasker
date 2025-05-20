@@ -404,24 +404,14 @@ func (m listModel) View() string {
 	s.WriteString("\n") // Add a newline after the header
 
 	if m.mode == modeAdding || m.mode == modeEditing {
+		// Only show text input when adding or editing
 		s.WriteString(m.textInput.View())
-		s.WriteString("\n\n") // Some space before the list or footer
-	}
-
-	// Only render list if not in pure input mode or if we want to show it underneath
-	// For now, we hide the list during input mode for simplicity
-	if m.mode == modeNavigating {
+		s.WriteString("\n\n") // Add some space after the input field
+	} else if m.mode == modeNavigating {
+		// Only show the list when navigating
 		s.WriteString(docStyle.Render(m.list.View()))
-	} else {
-		// Optionally, show a dimmed version of the list or nothing
-		// For now, let's add some padding to push the footer down if the list is hidden
-		// This depends on how m.list.SetSize was handled. If it's still reserving space,
-		// this might not be necessary.
-		numLinesInList := m.list.Height() // Get the height the list would occupy
-		if numLinesInList > 0 {
-			s.WriteString(strings.Repeat("\n", numLinesInList))
-		}
 	}
+    // If there were other modes, they would need handling here or fall through if no specific view.
 
 	s.WriteString(m.footerView())
 	return s.String()
