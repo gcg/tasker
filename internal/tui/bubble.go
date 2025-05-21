@@ -307,7 +307,6 @@ func (m listModel) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.syncListItems()
 		err := store.SaveTasks(defaultTaskFile, m.tasks) // Persist changes
 		if err != nil {
-			// Reverting to original simple concatenation.
 			m.errorMessage = "Failed to save tasks: " + err.Error()
 		}
 		m.mode = modeNavigating 
