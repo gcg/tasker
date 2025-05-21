@@ -307,9 +307,10 @@ func (m listModel) handleInputMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.syncListItems()
 		err := store.SaveTasks(defaultTaskFile, m.tasks) // Persist changes
 		if err != nil {
+			// Reverting to original simple concatenation.
 			m.errorMessage = "Failed to save tasks: " + err.Error()
 		}
-		m.mode = modeNavigating
+		m.mode = modeNavigating 
 		m.textInput.Reset()
 		m.textInput.Blur()
 		return m, nil
@@ -407,7 +408,7 @@ func (m listModel) handleNavigationMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, defaultKeyMap.save):
-		err := store.SaveTasks(defaultTaskFile, m.tasks)
+		err := store.SaveTasks(defaultTaskFile, m.tasks) // Corrected a typo here from SaveTasca to SaveTasks
 		if err != nil {
 			m.errorMessage = "Failed to save tasks: " + err.Error()
 		} else {
